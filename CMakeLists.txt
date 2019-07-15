@@ -12,7 +12,7 @@ set(CMAKE_TOOLCHAIN_FILE ${SOS_TOOLCHAIN_CMAKE_PATH}/sos-app-toolchain.cmake)
 include(${SOS_TOOLCHAIN_CMAKE_PATH}/sos-variables.cmake)
 
 # This will set the default RAM used by the application
-set(SOS_RAM_SIZE 8192)
+set(SOS_RAM_SIZE 16384)
 
 #Add sources to the project
 set(SOURCES_PREFIX ${CMAKE_SOURCE_DIR}/src)
