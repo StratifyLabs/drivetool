@@ -11,6 +11,7 @@ static Printer printer;
 static void show_usage(const Cli & cli);
 
 bool execute_blank_check(const Drive & drive, bool is_erase = false);
+bool execute_read(const Drive & drive, u32 address, u32 size);
 
 int main(int argc, char * argv[]){
 	String action;
@@ -25,7 +26,7 @@ int main(int argc, char * argv[]){
 
 	printer.set_verbose_level(Printer::INFO);
 
-	action = cli.get_option("action", "specify the operation blankcheck|erase|eraseall|getinfo|read");
+	action = cli.get_option("action", "specify the operation blankcheck|erase|eraseall|erasedevice|getinfo|read");
 	is_help = cli.get_option("help", "show help options");
 	address = cli.get_option("address", "specify the address to read or erase");
 	size = cli.get_option("size", "specify the number of bytes to read or erase");
@@ -52,6 +53,8 @@ int main(int argc, char * argv[]){
 		exit(1);
 	}
 
+	DriveInfo info = drive.get_info();
+
 	printer.open_object(action);
 
 	if( action == "blankcheck" ){
@@ -62,20 +65,33 @@ int main(int argc, char * argv[]){
 			printer.error("failed to erase block at address 0x%lX", address);
 		} else {
 			while( drive.is_busy() ){
-				;
+				chrono::wait_milliseconds(1);
 			}
 			printer.info("block erased at address 0x%lX\n", address);
 		}
 
 	} else if ( action == "eraseall" ){
 		execute_blank_check(drive, true);
+	} else if ( action == "erasedevice" ){
+		printer.info("estimated erase time is " F32U "ms", info.erase_device_time().milliseconds());
+		if( drive.erase_device() < 0 ){
+			printer.error("failed to erase the device");
+		}
+
+		while( drive.is_busy() ){
+			chrono::wait_milliseconds(1);
+		}
+
+		printer.info("device erase complete");
+
 	} else if ( action == "getinfo" ){
-		DriveInfo info = drive.get_info();
 
 		printer.key("path", path);
 		printer << info;
 
 	} else if ( action == "read" ){
+
+		execute_read(drive, address.to_integer(), size.to_integer());
 
 	} else {
 		printer.close_object();
@@ -97,6 +113,33 @@ void show_usage(const Cli & cli){
 	exit(1);
 }
 
+bool execute_read(const Drive & drive, u32 address, u32 size){
+	const u32 page_size = 1024;
+	Data buffer(page_size);
+	u32 bytes_read = 0;
+	drive.seek(address);
+	printer.set_flags(Printer::PRINT_BLOB | Printer::PRINT_HEX);
+	do {
+		if( size - bytes_read < page_size ){
+			buffer.set_size(size - bytes_read);
+		} else {
+			buffer.set_size(page_size);
+		}
+		drive.read(buffer);
+		if( drive.return_value() > 0 ){
+			bytes_read += size;
+			printer << buffer;
+		}
+	} while ( drive.return_value() == page_size && bytes_read < size);
+
+	if( drive.return_value() < 0 ){
+		printer.error("failed to read drive");
+		return false;
+	}
+
+	return true;
+}
+
 bool execute_blank_check(const Drive &drive, bool is_erase){
 	DriveInfo info = drive.get_info();
 	const u32 page_size = 1024;
@@ -109,7 +152,7 @@ bool execute_blank_check(const Drive &drive, bool is_erase){
 	for(u64 i=0; i < info.size(); i+= page_size ){
 		u32 loc = drive.loc();
 
-		if( i % 1024*1024 == 0 ){
+		if( (i % 1024*1024) == 0 ){
 			printer.debug("checking block at address 0x%lX", i);
 		}
 
@@ -121,6 +164,7 @@ bool execute_blank_check(const Drive &drive, bool is_erase){
 		if( buffer != check ){
 
 			if( is_erase ){
+				printer.debug("erasing block at address 0x%lX", loc);
 				if( drive.erase_blocks(loc, loc) < 0 ){
 					printer.error("failed to erase block at address %ld", loc);
 					return false;
