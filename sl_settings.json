@@ -1,5 +1,5 @@
 {
-   "description": "Please add a brief description of your application.",
+   "description": "The drivetool application is used for accessing mounted drives on Stratify OS.",
    "github": "",
    "name": "drivetool",
    "permissions": "public",
@@ -7,10 +7,13 @@
    "tags": "",
    "type": "app",
    "uid": "9cQyOTk3fZXOuMtPyf5j9X4H4b83",
-   "version": "0.1",
+   "version": "0.2",
    "hardwareId": "",
    "ramSize": 0,
-   "timestamp": 1552195083,
-   "documentId": "",
-   "readme": ""
+   "timestamp": 1563304804,
+   "documentId": "h0MUNvCNuUxy0zDW0DuG",
+   "buildList": {
+      "wqaLckRHkIPTnEE3DxMo": "0.1",
+      "wwQClV2joU9tnjdo1JPY": "0.2"
+   }
 }

@@ -26,7 +26,7 @@ int main(int argc, char * argv[]){
 
 	printer.set_verbose_level(Printer::INFO);
 
-	action = cli.get_option("action", "specify the operation blankcheck|erase|eraseall|erasedevice|getinfo|read");
+	action = cli.get_option("action", "specify the operation blankcheck|erase|eraseall|erasedevice|getinfo|read|reset");
 	is_help = cli.get_option("help", "show help options");
 	address = cli.get_option("address", "specify the address to read or erase");
 	size = cli.get_option("size", "specify the number of bytes to read or erase");
@@ -61,28 +61,43 @@ int main(int argc, char * argv[]){
 		//erase the device
 		execute_blank_check(drive, false);
 	} else if ( action == "erase" ){
-		if( drive.erase_blocks(address.to_integer(), address.to_integer()) < 0 ){
-			printer.error("failed to erase block at address 0x%lX", address);
+
+		if( drive.unprotect() < 0 ){
+			printer.error("failed to disable device protection");
 		} else {
-			while( drive.is_busy() ){
-				chrono::wait_milliseconds(1);
+
+			if( drive.erase_blocks(address.to_integer(), address.to_integer()) < 0 ){
+				printer.error("failed to erase block at address 0x%lX", address);
+			} else {
+				while( drive.is_busy() ){
+					chrono::wait_milliseconds(1);
+				}
+				printer.info("block erased at address 0x%lX\n", address);
 			}
-			printer.info("block erased at address 0x%lX\n", address);
 		}
 
 	} else if ( action == "eraseall" ){
-		execute_blank_check(drive, true);
+		if( drive.unprotect() < 0 ){
+			printer.error("failed to disable device protection");
+		} else {
+			execute_blank_check(drive, true);
+		}
 	} else if ( action == "erasedevice" ){
 		printer.info("estimated erase time is " F32U "ms", info.erase_device_time().milliseconds());
-		if( drive.erase_device() < 0 ){
-			printer.error("failed to erase the device");
-		}
+		if( drive.unprotect() < 0 ){
+			printer.error("failed to disable device protection");
+		} else {
+			if( drive.erase_device() < 0 ){
+				printer.error("failed to erase the device");
+			}
 
-		while( drive.is_busy() ){
-			chrono::wait_milliseconds(1);
-		}
+			printer.info("waiting for erase to complete");
+			while( drive.is_busy() ){
+				chrono::wait_milliseconds(1);
+			}
 
-		printer.info("device erase complete");
+			printer.info("device erase complete");
+		}
 
 	} else if ( action == "getinfo" ){
 
@@ -93,12 +108,22 @@ int main(int argc, char * argv[]){
 
 		execute_read(drive, address.to_integer(), size.to_integer());
 
+	} else if ( action == "reset" ){
+
+		if( drive.reset() < 0 ){
+			printer.error("failed to reset drive");
+		} else {
+			info.erase_block_time().wait();
+			drive.is_busy();
+			printer.info("drive successfully reset");
+		}
+
+
 	} else {
 		printer.close_object();
 		show_usage(cli);
 		exit(1);
 	}
-
 
 	printer.close_object();
 
@@ -152,7 +177,7 @@ bool execute_blank_check(const Drive &drive, bool is_erase){
 	for(u64 i=0; i < info.size(); i+= page_size ){
 		u32 loc = drive.loc();
 
-		if( (i % 1024*1024) == 0 ){
+		if( (i % (1024*1024)) == 0 ){
 			printer.debug("checking block at address 0x%lX", i);
 		}
 
@@ -188,6 +213,7 @@ bool execute_blank_check(const Drive &drive, bool is_erase){
 
 	}
 
+	printer.info("drive is blank");
 	return true;
 }
 
