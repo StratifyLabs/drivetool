@@ -1,25 +1,46 @@
-cmake_minimum_required (VERSION 3.6)
+#Copy this file to the application project folder as CMakeLists.txt
+cmake_minimum_required (VERSION 3.12)
 
-if( ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Darwin" )
-	set(SOS_TOOLCHAIN_CMAKE_PATH /Applications/StratifyLabs-SDK/Tools/gcc/arm-none-eabi/cmake)
-elseif( ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows" )
-	set(SOS_TOOLCHAIN_CMAKE_PATH C:/StratifyLabs-SDK/Tools/gcc/arm-none-eabi/lib/ldscripts)
-else()
-	message(FATAL_ERROR "Cross compiling is not yet supportd on: " ${CMAKE_HOST_SYSTEM_NAME})
+if(NOT SOS_SDK_PATH)
+	set(SOS_SDK_PATH $ENV{SOS_SDK_PATH})
 endif()
-set(CMAKE_TOOLCHAIN_FILE ${SOS_TOOLCHAIN_CMAKE_PATH}/sos-app-toolchain.cmake)
 
-include(${SOS_TOOLCHAIN_CMAKE_PATH}/sos-variables.cmake)
+set(CMAKE_MODULE_PATH ${SOS_SDK_PATH}/cmake)
+set(CMAKE_TOOLCHAIN_FILE ${CMAKE_MODULE_PATH}/sos-toolchain.cmake)
+include(sos-sdk)
 
-# This will set the default RAM used by the application
-set(SOS_RAM_SIZE 16384)
+include(StratifyOS_crt)
+include(HalAPI)
 
-#Add sources to the project
-set(SOURCES_PREFIX ${CMAKE_SOURCE_DIR}/src)
-add_subdirectory(src)
-list(APPEND SOS_SOURCELIST ${SOURCES})
+set(RAM_SIZE 32768)
+project(drivetool CXX C)
 
-get_filename_component(SOS_NAME ${CMAKE_SOURCE_DIR} NAME)
-project(${SOS_NAME} CXX C)
+sos_sdk_app_target(RELEASE ${PROJECT_NAME} "" release ${SOS_ARCH})
+message(STATUS "Stratify API Test Executable ${RELEASE_TARGET}")
+add_executable(${RELEASE_TARGET})
+target_sources(${RELEASE_TARGET}
+	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/sl_config.h
+	${CMAKE_CURRENT_SOURCE_DIR}/sl_settings.json
+	)
 
-include(${SOS_TOOLCHAIN_CMAKE_PATH}/sos-app-std.cmake)
+target_compile_options(${RELEASE_TARGET}
+	PRIVATE
+	-Os
+	)
+
+set_property(TARGET ${RELEASE_TARGET} PROPERTY CXX_STANDARD 17)
+
+set(DEPENDENCIES HalAPI SysAPI VarAPI StratifyOS_crt)
+
+sos_sdk_app_add_arch_targets("${RELEASE_OPTIONS}" "${DEPENDENCIES}" ${RAM_SIZE})
+if(SOS_IS_LINK)
+	sos_sdk_app_add_arch_targets("${COVERAGE_OPTIONS}" "${DEPENDENCIES}" ${RAM_SIZE})
+endif()
+
+target_compile_options(${RELEASE_TARGET}
+	PRIVATE
+	-Os
+	)
+
