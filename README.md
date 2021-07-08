@@ -1,2 +1,3 @@
-# gpiotool
-Tool for accessing GPIO on Stratify OS
+# drivetool
+
+Tool for checking drives on Stratify OS
