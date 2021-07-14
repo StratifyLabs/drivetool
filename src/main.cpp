@@ -69,16 +69,14 @@ int main(int argc, char *argv[]) {
 
   print.set_verbose_level(Printer::Level::info);
 
+  Options options(cli);
   const auto is_help = cli.get_option("help", "show help options");
-
   print.set_verbose_level(cli.get_option("verbose"));
-
   if (is_help.is_empty() == false) {
     cli.show_help(show_help);
     exit(0);
   }
 
-  Options options(cli);
 
   if (options.path().is_empty()) {
     print.error("`path` must be specified");
@@ -93,6 +91,13 @@ int main(int argc, char *argv[]) {
   }
 
   Drive drive(options.path());
+
+  drive.set_attributes(Drive::Attributes().set_flags(Drive::Flags::initialize));
+
+  if( drive.is_error() ){
+    print.error("Failed to initialize drive");
+    exit(1);
+  }
 
   const auto info = drive.get_info();
 
